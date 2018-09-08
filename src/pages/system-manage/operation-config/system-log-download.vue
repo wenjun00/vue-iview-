@@ -1,0 +1,186 @@
+<!--系统日志下载-->
+<template>
+  <section class="page system-log-download">
+    <page-header title="系统日志下载" hiddenPrint @on-export="exportLogs"></page-header>
+    <data-form hidden-date-search :model="systemLogModel" @on-search="search" :page="pageService">
+      <template slot="input">
+        <i-form-item prop="operator" label="操作人：">
+          <i-input v-model="systemLogModel.operator" :maxlength="20"></i-input>
+        </i-form-item>
+        <i-form-item prop="clientIp" label="客户端IP：">
+          <i-input v-model="systemLogModel.clientIp" :maxlength="50"></i-input>
+        </i-form-item>
+        <i-form-item prop="dateRange" label="操作时间：">
+          <i-date-picker v-model="systemLogModel.dateRange" type="daterange" placeholder="请选择日期范围"></i-date-picker>
+        </i-form-item>
+      </template>
+    </data-form>
+
+    <data-box :id="57" :columns="columns1" :data="systemLogsList" @on-page-change="search" :page="pageService" ref="databox"></data-box>
+  </section>
+</template>
+
+<script lang="ts">
+import Page from '~/core/page'
+import Component from 'vue-class-component'
+import DataBox from '~/components/common/data-box.vue'
+import SvgIcon from '~/components/common/svg-icon.vue'
+import { Dependencies } from '~/core/decorator'
+import { Layout } from '~/core/decorator'
+import { SysLogsService } from '~/services/manage-service/sys-logs.service'
+import { PageService } from '~/utils/page.service'
+import { CommonService } from '~/utils/common.service'
+import { FilterService } from '~/utils/filter.service'
+@Layout('workspace')
+@Component({
+  components: {
+    DataBox,
+    SvgIcon
+  }
+})
+export default class SystemLogDownload extends Page {
+  @Dependencies(SysLogsService) private sysLogsService: SysLogsService
+  @Dependencies(PageService) private pageService: PageService
+
+  private columns1: any
+  private systemLogsList: Array<Object> = []
+  private openColumnsConfig: Boolean = false
+  private columns2: any
+  private test: String = ''
+  private systemLogModel: any = {
+    clientIp: '',
+    exeType: '',
+    exeTime: '',
+    realName: '',
+    dateRange: []
+  }
+
+  created() {
+    this.systemLogModel = {
+      clientIp: '',
+      exeType: '',
+      exeTime: '',
+      realName: '',
+      dateRange: []
+    }
+    this.search()
+
+    this.columns1 = [
+      {
+        title: "序号",
+        type: "index",
+        fixed: "left",
+        align: "center",
+        width: 50
+      },
+      {
+        title: '操作时间',
+        key: 'operateTime',
+        editable: true,
+        align: 'center',
+        minWidth: this.$common.getColumnWidth(6),
+        render: (h, { row, columns, index }) => {
+          return h(
+            'span',
+            FilterService.dateTimeFormat(row.operateTime, 'YYYY-MM-DD HH:mm:ss')
+          )
+        }
+      },
+      {
+        title: '操作人',
+        editable: true,
+        key: 'operator',
+        align: 'center',
+        minWidth: this.$common.getColumnWidth(3),
+      },
+      {
+        title: '客户端IP',
+        editable: true,
+        key: 'clientIp',
+        align: 'center',
+        minWidth: this.$common.getColumnWidth(6),
+      },
+      {
+        title: '执行方法',
+        editable: true,
+        key: 'excuteMethod',
+        align: 'center',
+        minWidth: this.$common.getColumnWidth(6),
+      },
+      {
+        title: '备注',
+        editable: true,
+        key: 'logRemark',
+        align: 'center',
+        minWidth: this.$common.getColumnWidth(10),
+      },
+      {
+        title: '请求执行时长（秒）',
+        editable: true,
+        key: 'excuteTime',
+        align: 'center',
+        minWidth: this.$common.getColumnWidth(4),
+      },
+      {
+        title: '执行类型',
+        editable: true,
+        key: 'excuteType',
+        align: 'center',
+        minWidth: this.$common.getColumnWidth(4),
+      }
+    ]
+  }
+  search() {
+    this.sysLogsService
+      .querySysLogsPage(this.systemLogModel, this.pageService)
+      .subscribe(
+        data => this.systemLogsList = data,
+        err => this.$Message.error(err)
+      )
+  }
+  /**
+   * 列配置
+   */
+  columnsConfig() {
+    this.openColumnsConfig = true
+  }
+  /**
+   * 重置搜索
+   */
+  refreshRoleList() {
+    this.systemLogModel = {
+      clientIp: '',
+      exeType: '',
+      exeTime: '',
+      realName: ''
+    }
+  }
+   /**
+   * 导出系统日志列表
+   */
+  exportLogs() {
+    let databox = this.$refs['databox'] as DataBox
+    let multipleSelection = databox.getCurrentSelection()
+    if (multipleSelection && multipleSelection.length) {
+      let sysLogsIds = multipleSelection.map(v => v.id)
+      this.sysLogsService
+        .exportSysLogs({
+          sysLogsIds: sysLogsIds
+        })
+        .subscribe(
+          data => {
+            CommonService.downloadFile(data.url, '系统日志下载')
+          },
+          ({ msg }) => {
+            this.$Message.error(msg)
+          }
+        )
+    } else {
+      this.$Message.info('请先选择日志再导出！')
+    }
+  }
+}
+</script>
+
+<style lang="less" scoped>
+</style>
